@@ -1,18 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>neon-green-calendar</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
-    <meta property="og:image" content="/og-image.png" />
-  </head>
+<html>
+<head>
+    <title>Jarvis Weather Test</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background: #f8f9fa;
+            white-space: pre-wrap;
+        }
+        .loading {
+            display: none;
+            margin: 10px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Тест Джарвіса - Погода</h1>
+        <p>Натисніть кнопку, щоб отримати інформацію про погоду від Джарвіса</p>
+        <button onclick="askWeather()">Запитати про погоду</button>
+        <div class="loading" id="loading">Джарвіс обробляє запит...</div>
+        <div id="response"></div>
+    </div>
 
-  <body>
-    <div id="root"></div>
-    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <script>
+        async function askWeather() {
+            const loadingEl = document.getElementById('loading');
+            const responseEl = document.getElementById('response');
+            
+            try {
+                loadingEl.style.display = 'block';
+                responseEl.innerText = '';
+                
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyDMxdQXvWuSxH5Xn_cnJ_2LsSKP_ixAAhg', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Ти - Джарвіс, дружній AI-асистент з "Залізної людини". Користувач питає про погоду в Києві. 
+                                Дай відповідь у стилі Джарвіса - професійно, з повагою (звертайся "сер"), але з дружньою ноткою.
+                                Опиши поточну погоду, базуючись на порі року та часі доби.
+                                Формат відповіді:
+                                1. Привітання
+                                2. Основна інформація про погоду
+                                3. Додаткова порада щодо погоди (що вдягнути, чи брати парасольку тощо)
+                                4. Запитання чи потрібна додаткова інформація`
+                            }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.7,
+                            maxOutputTokens: 250,
+                            topP: 0.8,
+                            topK: 40
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                    responseEl.innerText = data.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error('Некоректна відповідь від API');
+                }
+            } catch (error) {
+                responseEl.innerText = 'Помилка: ' + error.message;
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+    </script>
+</body>
 </html>
