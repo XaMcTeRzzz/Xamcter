@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Task } from "@/components/TasksList";
 import { SpeechRecognition, SpeechRecognitionEvent } from "@/types/speech-recognition";
+import { VoiceService } from '@/services/voiceService';
+import { GrokService } from '@/services/grokService';
 
 interface JarvisAssistantProps {
   tasks: Task[];
@@ -72,19 +74,13 @@ export const JarvisAssistant = React.forwardRef<
   { startListening: () => void },
   JarvisAssistantProps
 >(({ tasks, selectedDate, onFilterDate, onAddTask, onListeningChange }, ref) => {
-  // Стан прослуховування
   const [isListening, setIsListening] = useState(false);
-  // Стан відтворення відповіді Джарвіса 
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  // Анімована іконка
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [waveform, setWaveform] = useState<number[]>([]);
-  // Текст розпізнаної команди
   const [recognizedText, setRecognizedText] = useState("");
-  // Кеш активних задач
   const [cachedTasks, setCachedTasks] = useState<Task[]>([]);
-  // Додамо стан для збереження доступних голосів
   const [availableVoices, setAvailableVoices] = useState<VoiceOption[]>([]);
-  // Вибраний голос
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
 
   // Референції для об'єктів розпізнавання і синтезу мови
@@ -99,7 +95,10 @@ export const JarvisAssistant = React.forwardRef<
   // Експортуємо функцію startListening через ref
   React.useImperativeHandle(ref, () => ({
     startListening: () => {
-      startListening();
+      if (!isListening && !isProcessing) {
+        const voiceService = VoiceService.getInstance();
+        voiceService.startListening();
+      }
     }
   }));
 
@@ -381,7 +380,7 @@ export const JarvisAssistant = React.forwardRef<
   useEffect(() => {
     let animationFrame: number;
     
-    if (isListening || isSpeaking) {
+    if (isListening || isProcessing) {
       const animate = () => {
         const newWaveform = Array.from({length: 8}, () => 
           Math.floor(Math.random() * 40) + 10);
@@ -394,11 +393,11 @@ export const JarvisAssistant = React.forwardRef<
     
     return () => {
       cancelAnimationFrame(animationFrame);
-      if (!isListening && !isSpeaking) {
+      if (!isListening && !isProcessing) {
         setWaveform([]);
       }
     };
-  }, [isListening, isSpeaking]);
+  }, [isListening, isProcessing]);
   
   // Функція для початку прослуховування
   const startListening = () => {
@@ -483,10 +482,10 @@ export const JarvisAssistant = React.forwardRef<
       const { audioContent } = await response.json();
       const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
       
-      audio.onplay = () => setIsSpeaking(true);
-      audio.onended = () => setIsSpeaking(false);
+      audio.onplay = () => setIsProcessing(true);
+      audio.onended = () => setIsProcessing(false);
       audio.onerror = () => {
-        setIsSpeaking(false);
+        setIsProcessing(false);
         toast({
           title: "Помилка відтворення",
           description: "Не вдалося відтворити аудіо",
@@ -627,20 +626,20 @@ export const JarvisAssistant = React.forwardRef<
     // Додаємо обробники подій
     utterance.onstart = () => {
       console.log("Джарвіс почав говорити");
-      setIsSpeaking(true);
+      setIsProcessing(true);
       // Використовуємо наявну анімацію, яка вже є в коді (припускаємо що generateWaveform вже існує)
       setWaveform(Array.from({ length: 10 }, () => 0.2 + Math.random() * 0.8));
     };
     
     utterance.onend = () => {
       console.log("Джарвіс закінчив говорити");
-      setIsSpeaking(false);
+      setIsProcessing(false);
       setWaveform([]);
     };
     
     utterance.onerror = (event) => {
       console.error("Помилка синтезу мовлення:", event);
-      setIsSpeaking(false);
+      setIsProcessing(false);
       setWaveform([]);
     };
     
@@ -798,7 +797,7 @@ export const JarvisAssistant = React.forwardRef<
   const stopSpeaking = () => {
     if (speechSynthesis && speechSynthesis.speaking) {
       speechSynthesis.cancel();
-      setIsSpeaking(false);
+      setIsProcessing(false);
     }
   };
   
@@ -952,43 +951,22 @@ export const JarvisAssistant = React.forwardRef<
   };
 
   return (
-    <div className="fixed bottom-28 right-1 z-50 flex flex-col items-end gap-2">
-      {/* Показуємо діалог налаштувань, якщо showSettings = true */}
-      {showSettings && <JarvisSettingsDialog />}
-      
-      {/* Спливаюча підказка/статус */}
-      {(isSpeaking || isListening) && (
-        <div className="bg-card p-3 rounded-lg shadow-lg animate-fade-in flex items-center gap-2 max-w-sm">
-          {/* Голосові хвилі */}
-          <div className="flex items-center h-8 gap-[2px]">
-            {waveform.map((height, index) => (
-              <div 
-                key={index}
-                className={`w-[2px] ${isListening ? "bg-yellow-400" : "bg-blue-400"} animate-pulse-fast`}
-                style={{ height: `${height}%` }}
-              />
-            ))}
-          </div>
-          
-          <div className="flex flex-col">
-            {isListening && <span className="text-xs font-bold text-yellow-400">Слухаю...</span>}
-            {isSpeaking && <span className="text-xs text-blue-400">Озвучую задачі...</span>}
-            {recognizedText && <span className="text-xs">{recognizedText}</span>}
-          </div>
-          
-          {/* Кнопка вимкнення голосу */}
-          {isSpeaking && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-full"
-              onClick={stopSpeaking}
-            >
-              <VolumeX className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      )}
+    <div className="fixed left-4 bottom-20 z-50">
+      <Button
+        variant="outline"
+        size="icon"
+        className={`rounded-full w-12 h-12 bg-background ${
+          isListening ? 'animate-pulse border-primary' : ''
+        } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={startListening}
+        disabled={isProcessing}
+      >
+        {isListening ? (
+          <Mic className="h-6 w-6 text-primary animate-pulse" />
+        ) : (
+          <Mic className="h-6 w-6" />
+        )}
+      </Button>
     </div>
   );
 });
