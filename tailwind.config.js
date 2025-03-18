@@ -17,6 +17,7 @@ export default {
     },
     extend: {
       colors: {
+        'neon-green': 'hsl(var(--neon-green))',
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -72,5 +73,5 @@ export default {
       },
     },
   },
-  plugins: ["tailwindcss-animate"],
+  plugins: [require("tailwindcss-animate")],
 } 
