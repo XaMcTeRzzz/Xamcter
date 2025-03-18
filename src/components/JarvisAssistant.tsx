@@ -5,7 +5,7 @@ import { toast } from "@/hooks/use-toast";
 import { Task } from "@/components/TasksList";
 import { SpeechRecognition, SpeechRecognitionEvent } from "@/types/speech-recognition";
 import { VoiceService } from '@/services/voiceService';
-import { GrokService } from '@/services/grokService';
+import { GeminiService } from '@/services/grokService';
 
 interface JarvisAssistantProps {
   tasks: Task[];
